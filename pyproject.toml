@@ -30,6 +30,9 @@ Documentation = "https://github.com/aowen-uwmad/htcondor-noun-verb-demo#readme"
 Issues = "https://github.com/aowen-uwmad/htcondor-noun-verb-demo/issues"
 Source = "https://github.com/aowen-uwmad/htcondor-noun-verb-demo"
 
+[project.scripts]
+htcondor = "htcondor_noun_verb_demo.main:main"
+
 [tool.hatch.version]
 path = "src/htcondor_noun_verb_demo/__about__.py"
 
