@@ -59,14 +59,56 @@ def get_parser():
     jobs_remove_parser = jobs_verbs.add_parser(
         "remove", help="Remove HTCondor job(s) permanently"
     )
+    jobs_edit_parser = jobs_verbs.add_parser("edit", help="Edit properties of the job")
     jobs_help_parser = jobs_verbs.add_parser("help", help="Print this help text")
 
     jobs_submit_parser.set_defaults(command=jobs_submit)
+    jobs_status_parser.set_defaults(command=jobs_status)
+    jobs_report_parser.set_defaults(command=jobs_report)
+    jobs_interact_parser.set_defaults(command=jobs_interact)
+    jobs_hold_parser.set_defaults(command=jobs_hold)
+    jobs_release_parser.set_defaults(command=jobs_release)
+    jobs_remove_parser.set_defaults(command=jobs_remove)
+    jobs_edit_parser.set_defaults(command=jobs_edit)
+    jobs_help_parser.set_defaults(command=jobs_help)
+
     return parser
 
 
 def jobs_submit(args):
     print("You've submitted a job using these arguments:", args)
+
+
+def jobs_status(args):
+    print("You've requested the status of a job.")
+
+
+def jobs_report(args):
+    print("You've requested a report of the jobs.")
+
+
+def jobs_interact(args):
+    print("You've requested to interact with a running job.")
+
+
+def jobs_hold(args):
+    print("You've requested to hold a job.")
+
+
+def jobs_release(args):
+    print("You've requested to release a held job.")
+
+
+def jobs_remove(args):
+    print("You've requested to remove a job from the queue.")
+
+
+def jobs_edit(args):
+    print("You've requested to edit the properties of job(s).")
+
+
+def jobs_help(args):
+    print("This is a summary of the help for the 'htcondor jobs' command.")
 
 
 def parse_args(parser):
