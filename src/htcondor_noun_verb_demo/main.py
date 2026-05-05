@@ -7,6 +7,7 @@ attaches arguments/options, and delegates to handler functions.
 
 import argparse
 import sys
+from typing import Optional
 
 from htcondor_noun_verb_demo.formatting import print_error, print_hint
 
@@ -35,8 +36,8 @@ class FriendlyArgumentParser(argparse.ArgumentParser):
     """ArgumentParser subclass that replaces terse argparse errors with
     the same ``Error:`` / ``Hint:`` style used by the rest of the CLI."""
 
-    _friendly_error: str | None = None
-    _friendly_hint: str | None = None
+    _friendly_error: Optional[str] = None
+    _friendly_hint: Optional[str] = None
 
     def error(self, message):
         """Override to produce user-friendly error output."""
