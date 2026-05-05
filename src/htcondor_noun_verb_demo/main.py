@@ -35,16 +35,15 @@ class FriendlyArgumentParser(argparse.ArgumentParser):
     """ArgumentParser subclass that replaces terse argparse errors with
     the same ``Error:`` / ``Hint:`` style used by the rest of the CLI."""
 
+    _friendly_error: str | None = None
+    _friendly_hint: str | None = None
+
     def error(self, message):
         """Override to produce user-friendly error output."""
-        # If we have custom error metadata stashed on this parser, use it.
-        friendly_error = getattr(self, "_friendly_error", None)
-        friendly_hint = getattr(self, "_friendly_hint", None)
-
-        if friendly_error:
-            print_error(friendly_error)
-            if friendly_hint:
-                print_hint(friendly_hint)
+        if self._friendly_error:
+            print_error(self._friendly_error)
+            if self._friendly_hint:
+                print_hint(self._friendly_hint)
         else:
             # Fallback: still friendlier than raw argparse
             print_error(message)

@@ -7,7 +7,6 @@ default for the corresponding argparse sub-parser created in ``main.py``.
 
 from htcondor_noun_verb_demo.mock_data import MOCK_MACHINES
 from htcondor_noun_verb_demo.formatting import (
-    BOLD,
     CYAN,
     DIM,
     GREEN,

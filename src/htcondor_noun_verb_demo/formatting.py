@@ -4,7 +4,7 @@ Shared output-formatting helpers for the demo CLI.
 Provides consistent, polished terminal output across all commands.
 """
 
-import os
+import re
 import sys
 
 
@@ -33,6 +33,25 @@ RESET = _sgr("0")
 # Table printing
 # ---------------------------------------------------------------------------
 
+_ANSI_ESCAPE = re.compile(r"\033\[[0-9;]*m")
+
+
+def _display_len(text):
+    """Return the visible display length of a string, ignoring ANSI escape codes."""
+    return len(_ANSI_ESCAPE.sub("", str(text)))
+
+
+def _pad(text, width, right_align=False):
+    """Pad *text* to *width* visible characters, accounting for ANSI codes."""
+    text = str(text)
+    pad = width - _display_len(text)
+    if pad <= 0:
+        return text
+    if right_align:
+        return " " * pad + text
+    return text + " " * pad
+
+
 def print_table(headers, rows, right_align=None):
     """
     Print a simple aligned text table.
@@ -49,21 +68,17 @@ def print_table(headers, rows, right_align=None):
     if right_align is None:
         right_align = set()
 
-    # Compute column widths
-    col_widths = [len(h) for h in headers]
+    # Compute column widths using visible (ANSI-stripped) lengths
+    col_widths = [_display_len(h) for h in headers]
     for row in rows:
         for i, cell in enumerate(row):
-            col_widths[i] = max(col_widths[i], len(str(cell)))
+            col_widths[i] = max(col_widths[i], _display_len(cell))
 
     def _fmt_row(cells):
         parts = []
         for i, cell in enumerate(cells):
             width = col_widths[i]
-            text = str(cell)
-            if i in right_align:
-                parts.append(text.rjust(width))
-            else:
-                parts.append(text.ljust(width))
+            parts.append(_pad(cell, width, right_align=(i in right_align)))
         return "  ".join(parts)
 
     # Header

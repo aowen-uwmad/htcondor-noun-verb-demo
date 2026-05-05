@@ -7,7 +7,6 @@ default for the corresponding argparse sub-parser created in ``main.py``.
 
 import os
 import sys
-import random
 
 from htcondor_noun_verb_demo.mock_data import MOCK_JOBS, _NOW
 from htcondor_noun_verb_demo.formatting import (
@@ -39,11 +38,17 @@ def _parse_job_id(raw):
     Accepts ``"1042.0"`` or ``"1042"`` (bare cluster id).
     Returns ``(cluster_id, proc_id)`` where *proc_id* is ``None``
     when the user supplied only a cluster id (meaning "all procs").
+
+    Raises ``SystemExit`` with a friendly error message for invalid input.
     """
-    if "." in raw:
-        parts = raw.split(".", 1)
-        return int(parts[0]), int(parts[1])
-    return int(raw), None
+    try:
+        if "." in raw:
+            parts = raw.split(".", 1)
+            return int(parts[0]), int(parts[1])
+        return int(raw), None
+    except ValueError:
+        print_error(f"Invalid job ID '{raw}'. Expected format: <cluster> or <cluster>.<proc> (e.g. 1042 or 1042.0).")
+        sys.exit(1)
 
 
 def _filter_jobs(job_id_raw=None):
@@ -84,8 +89,8 @@ def _status_colour(status_str):
 def jobs_submit(args):
     """Handle ``htcondor jobs submit <submit_file>``."""
     submit_file = args.submit_file
-    cluster_id = random.randint(1050, 1200)
-    num_procs = random.randint(1, 5)
+    cluster_id = 1046
+    num_procs = 3
 
     print(f"Submitting job(s) from: {BOLD}{submit_file}{RESET}")
     print(f"  {GREEN}✓{RESET} {num_procs} job(s) submitted to cluster {BOLD}{cluster_id}{RESET}.")
@@ -224,7 +229,7 @@ def jobs_interact(args):
         )
     elif submit_file:
         # condor_submit -i path
-        cluster_id = random.randint(1050, 1200)
+        cluster_id = 1047
         print(f"Submitting interactive job from: {BOLD}{submit_file}{RESET}")
         print(f"  → Job {cluster_id}.0 submitted.")
         print(f"  → Waiting for job {cluster_id}.0 to start…")
@@ -261,9 +266,10 @@ def jobs_hold(args):
     print_confirmation("held", label, extra)
 
     if getattr(args, "verbose", False):
-        print(f"\n  {DIM}JobStatus changed: 2 (Running) → 5 (Held)")
+        line = f"\n  {DIM}JobStatus changed: 2 (Running) → 5 (Held)"
         if reason:
-            print(f"  HoldReason set: \"{reason}\"{RESET}")
+            line += f"\n  HoldReason set: \"{reason}\""
+        print(line + RESET)
 
     print_hint(f"Use `htcondor jobs release {label}` to release this job when ready.")
 
@@ -294,9 +300,10 @@ def jobs_remove(args):
     print_confirmation(action, label)
 
     if getattr(args, "verbose", False):
-        print(f"\n  {DIM}JobStatus changed: → 3 (Removed)")
+        line = f"\n  {DIM}JobStatus changed: → 3 (Removed)"
         if force:
-            print(f"  Force-remove: job will not run cleanup hooks.{RESET}")
+            line += "\n  Force-remove: job will not run cleanup hooks."
+        print(line + RESET)
 
     print_hint("Use `htcondor jobs report` to see remaining jobs.")
 
