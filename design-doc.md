@@ -127,7 +127,7 @@ My proposal is that a "template" is a set of files necessary for running a speci
 | Verb | Description |
 | :---- | :---- |
 | `generate` OR `copy` | Create the files using the specified template |
-| `show` OR `list` | Show the templates that can be used  |
+| `show` OR `list` | Show the templates that can be used  |
 | `create` | Create a new template to be added to the list of available templates |
 | `modify` | Change a user-created template in the list of available templates |
 | `export` | Create a single standalone file to share a template with others |
