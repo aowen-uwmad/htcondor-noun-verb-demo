@@ -6,6 +6,7 @@ default for the corresponding argparse sub-parser created in ``main.py``.
 """
 
 import os
+import sys
 import random
 
 from htcondor_noun_verb_demo.mock_data import MOCK_JOBS, _NOW
@@ -204,7 +205,7 @@ def jobs_interact(args):
             "Use `htcondor jobs interact <submit_file>` to start a new interactive job,\n"
             "       or `htcondor jobs interact --job-id <id>` to SSH into an existing job."
         )
-        return
+        sys.exit(1)
 
     if job_id:
         # condor_ssh_to_job path
@@ -243,6 +244,7 @@ def jobs_interact(args):
             "Use `htcondor jobs interact <submit_file>` to start a new interactive job,\n"
             "       or `htcondor jobs interact --job-id <id>` to SSH into an existing job."
         )
+        sys.exit(1)
 
 
 def jobs_hold(args):

@@ -8,6 +8,8 @@ attaches arguments/options, and delegates to handler functions.
 import argparse
 import sys
 
+from htcondor_noun_verb_demo.formatting import print_error, print_hint
+
 from htcondor_noun_verb_demo.handlers.jobs import (
     jobs_edit,
     jobs_help,
@@ -26,13 +28,45 @@ from htcondor_noun_verb_demo.handlers.pool import (
 
 
 # ---------------------------------------------------------------------------
+# Custom ArgumentParser for friendly error messages
+# ---------------------------------------------------------------------------
+
+class FriendlyArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser subclass that replaces terse argparse errors with
+    the same ``Error:`` / ``Hint:`` style used by the rest of the CLI."""
+
+    def error(self, message):
+        """Override to produce user-friendly error output."""
+        # If we have custom error metadata stashed on this parser, use it.
+        friendly_error = getattr(self, "_friendly_error", None)
+        friendly_hint = getattr(self, "_friendly_hint", None)
+
+        if friendly_error:
+            print_error(friendly_error)
+            if friendly_hint:
+                print_hint(friendly_hint)
+        else:
+            # Fallback: still friendlier than raw argparse
+            print_error(message)
+            print_hint(f"Use `{self.prog} --help` for usage information.")
+
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
 # Parser construction
 # ---------------------------------------------------------------------------
 
 def get_parser():
-    parser = argparse.ArgumentParser(
+    parser = FriendlyArgumentParser(
         prog="htcondor",
         description="The HTCondor command-line interface.",
+    )
+    parser._friendly_error = "Provide a noun."
+    parser._friendly_hint = (
+        "Use `htcondor <noun>`. "
+        "Available nouns: jobs, dag, project, template, log, pool.\n"
+        "       Use `htcondor --help` for details."
     )
 
     # Global arguments
@@ -46,6 +80,7 @@ def get_parser():
         description="Use 'htcondor <noun> --help' for more information on a noun.",
         dest="noun",
         required=True,
+        parser_class=FriendlyArgumentParser,
     )
 
     # -----------------------------------------------------------------
@@ -53,6 +88,12 @@ def get_parser():
     # -----------------------------------------------------------------
     jobs_parser = nouns.add_parser(
         "jobs", help="Create and interact with HTCondor job(s)"
+    )
+    jobs_parser._friendly_error = "Provide a verb for 'jobs'."
+    jobs_parser._friendly_hint = (
+        "Use `htcondor jobs <verb>`. "
+        "Available verbs: submit, status, report, interact, hold, release, remove, edit.\n"
+        "       Use `htcondor jobs --help` for details."
     )
     dag_parser = nouns.add_parser(
         "dag", help="Create and interact with HTCondor DAGMan workflows"
@@ -70,6 +111,12 @@ def get_parser():
     pool_parser = nouns.add_parser(
         "pool", help="Query and interact with your pool of resources"
     )
+    pool_parser._friendly_error = "Provide a verb for 'pool'."
+    pool_parser._friendly_hint = (
+        "Use `htcondor pool <verb>`. "
+        "Available verbs: status.\n"
+        "       Use `htcondor pool --help` for details."
+    )
 
     # =================================================================
     # jobs verbs
@@ -79,10 +126,16 @@ def get_parser():
         description="Use 'htcondor jobs <verb> --help' for details.",
         dest="verb",
         required=True,
+        parser_class=FriendlyArgumentParser,
     )
 
     # --- jobs submit ---
     p = jobs_verbs.add_parser("submit", help="Submit HTCondor job(s)")
+    p._friendly_error = "Provide a submit description file."
+    p._friendly_hint = (
+        "Use `htcondor jobs submit <submit_file>` to submit jobs.\n"
+        "       Example: `htcondor jobs submit analysis.sub`"
+    )
     p.add_argument("submit_file", help="Path to the submit description file")
     p.set_defaults(command=jobs_submit)
 
@@ -120,6 +173,11 @@ def get_parser():
     p = jobs_verbs.add_parser(
         "hold", help="Interrupt and prevent HTCondor job(s) from running"
     )
+    p._friendly_error = "Provide a job ID to hold."
+    p._friendly_hint = (
+        "Use `htcondor jobs hold <job_id>` to hold a job.\n"
+        "       Example: `htcondor jobs hold 1042.0`"
+    )
     p.add_argument("job_id", help="Job ID to hold (e.g. 1042.0 or 1042)")
     p.add_argument(
         "-r", "--reason", default=None,
@@ -132,12 +190,22 @@ def get_parser():
         "release",
         help="Remove a 'hold' and allow HTCondor job(s) to run again",
     )
+    p._friendly_error = "Provide a job ID to release."
+    p._friendly_hint = (
+        "Use `htcondor jobs release <job_id>` to release a held job.\n"
+        "       Example: `htcondor jobs release 1042.0`"
+    )
     p.add_argument("job_id", help="Job ID to release (e.g. 1042.0 or 1042)")
     p.set_defaults(command=jobs_release)
 
     # --- jobs remove ---
     p = jobs_verbs.add_parser(
         "remove", help="Remove HTCondor job(s) permanently"
+    )
+    p._friendly_error = "Provide a job ID to remove."
+    p._friendly_hint = (
+        "Use `htcondor jobs remove <job_id>` to remove a job.\n"
+        "       Example: `htcondor jobs remove 1042.0`"
     )
     p.add_argument("job_id", help="Job ID to remove (e.g. 1042.0 or 1042)")
     p.add_argument(
@@ -148,6 +216,11 @@ def get_parser():
 
     # --- jobs edit ---
     p = jobs_verbs.add_parser("edit", help="Edit properties of a job")
+    p._friendly_error = "Provide a job ID, attribute, and value."
+    p._friendly_hint = (
+        "Use `htcondor jobs edit <job_id> --attribute <attr> --value <val>`.\n"
+        "       Example: `htcondor jobs edit 1042.0 --attribute RequestMemory --value 8192`"
+    )
     p.add_argument("job_id", help="Job ID to edit (e.g. 1042.0)")
     p.add_argument(
         "--attribute", required=True,
@@ -171,6 +244,7 @@ def get_parser():
         description="Use 'htcondor pool <verb> --help' for details.",
         dest="verb",
         required=True,
+        parser_class=FriendlyArgumentParser,
     )
 
     # --- pool status ---
