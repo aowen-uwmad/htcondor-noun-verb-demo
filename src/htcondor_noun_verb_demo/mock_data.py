@@ -79,7 +79,7 @@ MOCK_JOBS = [
         "QDate": _NOW - timedelta(days=1, hours=3),
         "JobStartDate": _NOW - timedelta(days=1, hours=2),
         "ImageSize": 1_200_000,
-        "HoldReason": "Job exceeded memory limit (request_memory = 16384 MB)",
+        "HoldReason": "Job exceeded memory limit (request_memory = 16 GB)",
     },
     {
         "ClusterId": 1044,

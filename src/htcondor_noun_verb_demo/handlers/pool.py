@@ -55,7 +55,7 @@ def _activity_colour(activity):
 def pool_status(args):
     """Handle ``htcondor pool status``."""
     show_all = getattr(args, "all", False)
-    constraint = getattr(args, "constraint", None)
+    filter_expr = getattr(args, "filter", None)
 
     machines = list(MOCK_MACHINES)
 
@@ -63,8 +63,8 @@ def pool_status(args):
         # Filter out "Owner" state machines (user "can't access" them)
         machines = [m for m in machines if m["State"] != "Owner"]
 
-    if constraint:
-        print(f"{DIM}(Constraint '{constraint}' noted — demo ignores filters){RESET}\n")
+    if filter_expr:
+        print(f"{DIM}(Filter '{filter_expr}' noted — demo ignores filters){RESET}\n")
 
     print_section("Pool Status")
     print()

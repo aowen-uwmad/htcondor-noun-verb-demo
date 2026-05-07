@@ -145,7 +145,7 @@ Job Report for adesai
     Completed  █████░░░░░░░░░░░░░░░░░░░░░░░░░   1 (16.7%)
 
   ⚠  1 job(s) are held:
-     1043.0: Job exceeded memory limit (request_memory = 16384 MB)
+     1043.0: Job exceeded memory limit (request_memory = 16 GB)
 
 Hint: Use `htcondor jobs status <job_id>` to inspect a specific job, or `htcondor jobs release <job_id>` to release held jobs.
 ```
@@ -184,8 +184,8 @@ Hint: Use `htcondor jobs report` to see remaining jobs.
 Edit a job attribute:
 
 ```bash
-$ htcondor jobs edit 1043.0 --attribute RequestMemory --value 32768
-✓ Job 1043.0: set RequestMemory = 32768
+$ htcondor jobs edit 1043.0 request_memory=30GB
+✓ Job 1043.0: set RequestMemory = 30 GB
 
 Hint: Use `htcondor jobs status 1043.0` to verify the change.
 ```
@@ -236,7 +236,7 @@ Add `-v` for extra details:
 $ htcondor -v jobs hold 1042.0 -r "Testing verbose mode"
 ✓ Job 1042.0 held.  Reason: "Testing verbose mode"
 
-  JobStatus changed: 2 (Running) → 5 (Held)
+  JobStatus changed: Running → Held
   HoldReason set: "Testing verbose mode"
 
 Hint: Use `htcondor jobs release 1042.0` to release this job when ready.
