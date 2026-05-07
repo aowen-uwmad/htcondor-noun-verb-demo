@@ -5,6 +5,8 @@ Each public function in this module is wired up as the ``command``
 default for the corresponding argparse sub-parser created in ``main.py``.
 """
 
+import logging
+
 from htcondor_noun_verb_demo.mock_data import MOCK_MACHINES
 from htcondor_noun_verb_demo.formatting import (
     CYAN,
@@ -18,6 +20,17 @@ from htcondor_noun_verb_demo.formatting import (
     print_section,
     print_table,
 )
+
+
+# ---------------------------------------------------------------------------
+# Module-level loggers
+# ---------------------------------------------------------------------------
+
+# Level 1 (-d): HTCondor-internals detail (machine ClassAd attributes, …)
+_htcondor_log = logging.getLogger("htcondor_noun_verb_demo.htcondor")
+
+# Level 2 (-dd): CLI / argument-parsing detail
+_cli_log = logging.getLogger("htcondor_noun_verb_demo.cli")
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +69,9 @@ def pool_status(args):
     """Handle ``htcondor pool status``."""
     show_all = getattr(args, "all", False)
     filter_expr = getattr(args, "filter", None)
+    _cli_log.debug(
+        "pool_status called with show_all=%r filter_expr=%r", show_all, filter_expr
+    )
 
     machines = list(MOCK_MACHINES)
 
@@ -64,6 +80,7 @@ def pool_status(args):
         machines = [m for m in machines if m["State"] != "Owner"]
 
     if filter_expr:
+        _cli_log.debug("Filter expression supplied: %r (demo ignores filters)", filter_expr)
         print(f"{DIM}(Filter '{filter_expr}' noted — demo ignores filters){RESET}\n")
 
     print_section("Pool Status")
@@ -82,6 +99,12 @@ def pool_status(args):
             str(m["TotalCpus"]),
             format_memory(m["TotalMemory"]),
         ])
+        _htcondor_log.debug(
+            "Machine ClassAd %s: OpSys=%s Arch=%s State=%s Activity=%s "
+            "TotalCpus=%d TotalMemory=%d MB LoadAvg=%.2f",
+            m["Name"], m["OpSys"], m["Arch"], m["State"], m["Activity"],
+            m["TotalCpus"], m["TotalMemory"], m["LoadAvg"],
+        )
 
     print_table(headers, rows, right_align={5, 6, 7})
 

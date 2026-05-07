@@ -6,10 +6,11 @@ default for the corresponding argparse sub-parser created in ``main.py``.
 """
 
 import os
+import logging
 import re
 import sys
 
-from htcondor_noun_verb_demo.mock_data import MOCK_JOBS, _NOW
+from htcondor_noun_verb_demo.mock_data import MOCK_JOBS, JOB_STATUS_MAP, _NOW
 from htcondor_noun_verb_demo.formatting import (
     BOLD,
     CYAN,
@@ -29,6 +30,17 @@ from htcondor_noun_verb_demo.formatting import (
 
 
 # ---------------------------------------------------------------------------
+# Module-level loggers
+# ---------------------------------------------------------------------------
+
+# Level 1 (-d): HTCondor-internals detail (ClassAd attributes, status codes, …)
+_htcondor_log = logging.getLogger("htcondor_noun_verb_demo.htcondor")
+
+# Level 2 (-dd): CLI / argument-parsing detail
+_cli_log = logging.getLogger("htcondor_noun_verb_demo.cli")
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -42,11 +54,16 @@ def _parse_job_id(raw):
 
     Raises ``SystemExit`` with a friendly error message for invalid input.
     """
+    _cli_log.debug("Parsing job ID from input: %r", raw)
     try:
         if "." in raw:
             parts = raw.split(".", 1)
-            return int(parts[0]), int(parts[1])
-        return int(raw), None
+            cluster, proc = int(parts[0]), int(parts[1])
+            _cli_log.debug("Parsed job ID → ClusterId=%d, ProcId=%d", cluster, proc)
+            return cluster, proc
+        cluster = int(raw)
+        _cli_log.debug("Parsed job ID → ClusterId=%d, ProcId=<all>", cluster)
+        return cluster, None
     except ValueError:
         print_error(f"Invalid job ID '{raw}'. Expected format: <cluster> or <cluster>.<proc> (e.g. 1042 or 1042.0).")
         sys.exit(1)
@@ -55,12 +72,26 @@ def _parse_job_id(raw):
 def _filter_jobs(job_id_raw=None):
     """Return the subset of MOCK_JOBS matching the optional *job_id_raw*."""
     if job_id_raw is None:
+        _cli_log.debug("No job ID filter supplied; returning all %d jobs", len(MOCK_JOBS))
         return list(MOCK_JOBS)
     cluster, proc = _parse_job_id(job_id_raw)
     matches = [
         j for j in MOCK_JOBS
         if j["ClusterId"] == cluster and (proc is None or j["ProcId"] == proc)
     ]
+    _cli_log.debug(
+        "Filter ClusterId=%d ProcId=%s matched %d job(s)",
+        cluster, proc if proc is not None else "<all>", len(matches),
+    )
+    for j in matches:
+        status_code = j["JobStatus"]
+        _htcondor_log.debug(
+            "Matched job ClassAd: ClusterId=%d ProcId=%d "
+            "JobStatus=%d (%s) Owner=%s",
+            j["ClusterId"], j["ProcId"],
+            status_code, JOB_STATUS_MAP.get(status_code, "Unknown"),
+            j["Owner"],
+        )
     return matches
 
 
@@ -154,6 +185,7 @@ def _parse_assignment(assignment):
 
     Raises ``SystemExit`` with a friendly error for invalid input.
     """
+    _cli_log.debug("Parsing assignment string: %r", assignment)
     if "=" not in assignment:
         print_error(
             f"Invalid assignment '{assignment}'. "
@@ -173,6 +205,9 @@ def _parse_assignment(assignment):
         sys.exit(1)
 
     classad_attr = _normalize_attribute(key)
+    _htcondor_log.debug(
+        "Attribute key %r normalized to ClassAd name %r", key, classad_attr
+    )
 
     # Convert memory values (stored in MB).
     if classad_attr in _MEMORY_MB_ATTRS:
@@ -185,6 +220,10 @@ def _parse_assignment(assignment):
             sys.exit(1)
         raw_value = mb
         display_value = format_memory(mb)
+        _htcondor_log.debug(
+            "ClassAd %s: value %r converted to %d MB (%s)",
+            classad_attr, value_str, raw_value, display_value,
+        )
         return classad_attr, raw_value, display_value
 
     # Convert disk values (stored in KB).
@@ -198,9 +237,14 @@ def _parse_assignment(assignment):
             sys.exit(1)
         raw_value = kb
         display_value = format_memory(kb // 1024) if kb >= 1024 else f"{kb} KB"
+        _htcondor_log.debug(
+            "ClassAd %s: value %r converted to %d KB (%s)",
+            classad_attr, value_str, raw_value, display_value,
+        )
         return classad_attr, raw_value, display_value
 
     # For all other attributes, pass the value through.
+    _htcondor_log.debug("ClassAd %s: value %r passed through as-is", classad_attr, value_str)
     return classad_attr, value_str, value_str
 
 
@@ -211,6 +255,7 @@ def _parse_assignment(assignment):
 def jobs_submit(args):
     """Handle ``htcondor jobs submit <submit_file>``."""
     submit_file = args.submit_file
+    _cli_log.debug("jobs_submit called with submit_file=%r", submit_file)
     cluster_id = 1046
     num_procs = 3
 
@@ -230,6 +275,7 @@ def jobs_submit(args):
 def jobs_status(args):
     """Handle ``htcondor jobs status [job_id]``."""
     job_id_raw = getattr(args, "job_id", None)
+    _cli_log.debug("jobs_status called with job_id=%r", job_id_raw)
     jobs = _filter_jobs(job_id_raw)
 
     if not jobs:
@@ -259,6 +305,16 @@ def jobs_status(args):
         cmd = os.path.basename(j["Cmd"])
         rows.append([jid, status, cpus, mem, runtime, cmd])
 
+        status_code = j["JobStatus"]
+        _htcondor_log.debug(
+            "Job ClassAd %s: JobStatus=%d (%s) "
+            "RequestCpus=%d RequestMemory=%d MB RequestDisk=%d KB "
+            "RemoteHost=%r ImageSize=%d",
+            jid, status_code, JOB_STATUS_MAP.get(status_code, "Unknown"),
+            j["RequestCpus"], j["RequestMemory"], j["RequestDisk"],
+            j["RemoteHost"], j["ImageSize"],
+        )
+
     print_table(headers, rows, right_align={2, 3})
 
     # Summary line
@@ -277,6 +333,7 @@ def jobs_status(args):
 
 def jobs_report(args):
     """Handle ``htcondor jobs report``."""
+    _cli_log.debug("jobs_report called")
     owner = MOCK_JOBS[0]["Owner"]
 
     # Tally by status
@@ -284,6 +341,11 @@ def jobs_report(args):
     for j in MOCK_JOBS:
         s = j["JobStatusStr"]
         status_counts[s] = status_counts.get(s, 0) + 1
+        _htcondor_log.debug(
+            "Job ClassAd %d.%d: JobStatus=%d (%s)",
+            j["ClusterId"], j["ProcId"], j["JobStatus"],
+            JOB_STATUS_MAP.get(j["JobStatus"], "Unknown"),
+        )
 
     total = len(MOCK_JOBS)
     clusters = len({j["ClusterId"] for j in MOCK_JOBS})
@@ -325,6 +387,7 @@ def jobs_interact(args):
     """Handle ``htcondor jobs interact``."""
     submit_file = getattr(args, "submit_file", None)
     job_id = getattr(args, "job_id", None)
+    _cli_log.debug("jobs_interact called with submit_file=%r job_id=%r", submit_file, job_id)
 
     if submit_file and job_id:
         print_error("Provide either a submit file or a job ID, not both.")
@@ -378,6 +441,7 @@ def jobs_hold(args):
     """Handle ``htcondor jobs hold <job_id>``."""
     job_id_raw = args.job_id
     reason = getattr(args, "reason", None)
+    _cli_log.debug("jobs_hold called with job_id=%r reason=%r", job_id_raw, reason)
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
@@ -386,6 +450,12 @@ def jobs_hold(args):
         extra = f'Reason: "{reason}"'
 
     print_confirmation("held", label, extra)
+
+    _htcondor_log.debug(
+        "ClassAd update for job %s: JobStatus → %d (%s)%s",
+        label, 5, JOB_STATUS_MAP[5],
+        f", HoldReason={reason!r}" if reason else "",
+    )
 
     if getattr(args, "verbose", False):
         line = f"\n  {DIM}JobStatus changed: Running → Held"
@@ -399,10 +469,16 @@ def jobs_hold(args):
 def jobs_release(args):
     """Handle ``htcondor jobs release <job_id>``."""
     job_id_raw = args.job_id
+    _cli_log.debug("jobs_release called with job_id=%r", job_id_raw)
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
     print_confirmation("released", label)
+
+    _htcondor_log.debug(
+        "ClassAd update for job %s: JobStatus → %d (%s), HoldReason cleared",
+        label, 1, JOB_STATUS_MAP[1],
+    )
 
     if getattr(args, "verbose", False):
         print(f"\n  {DIM}JobStatus changed: Held → Idle")
@@ -415,11 +491,18 @@ def jobs_remove(args):
     """Handle ``htcondor jobs remove <job_id>``."""
     job_id_raw = args.job_id
     force = getattr(args, "force", False)
+    _cli_log.debug("jobs_remove called with job_id=%r force=%r", job_id_raw, force)
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
     action = "forcefully removed" if force else "removed"
     print_confirmation(action, label)
+
+    _htcondor_log.debug(
+        "ClassAd update for job %s: JobStatus → %d (%s)%s",
+        label, 3, JOB_STATUS_MAP[3],
+        " (force-remove: cleanup hooks skipped)" if force else "",
+    )
 
     if getattr(args, "verbose", False):
         line = f"\n  {DIM}JobStatus changed: → Removed"
@@ -434,12 +517,18 @@ def jobs_edit(args):
     """Handle ``htcondor jobs edit <job_id> <key>=<value>``."""
     job_id_raw = args.job_id
     assignment = args.assignment
+    _cli_log.debug("jobs_edit called with job_id=%r assignment=%r", job_id_raw, assignment)
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
     classad_attr, raw_value, display_value = _parse_assignment(assignment)
 
     print(f"{GREEN}✓{RESET} Job {BOLD}{label}{RESET}: set {BOLD}{classad_attr}{RESET} = {display_value}")
+
+    _htcondor_log.debug(
+        "ClassAd update for job %s: %s = %r (display: %s)",
+        label, classad_attr, raw_value, display_value,
+    )
 
     if getattr(args, "verbose", False):
         print(f"\n  {DIM}Attribute '{classad_attr}' updated to {display_value} for job {label}.{RESET}")

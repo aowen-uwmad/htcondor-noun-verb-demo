@@ -6,6 +6,7 @@ attaches arguments/options, and delegates to handler functions.
 """
 
 import argparse
+import logging
 import sys
 from typing import Optional
 
@@ -26,6 +27,49 @@ from htcondor_noun_verb_demo.handlers.pool import (
     pool_help,
     pool_status,
 )
+
+
+# ---------------------------------------------------------------------------
+# Debug logging setup
+# ---------------------------------------------------------------------------
+
+_LOG_FORMAT = "[%(levelname)s:%(name)s] %(message)s"
+
+# Module-level loggers used throughout the package:
+#   htcondor_noun_verb_demo.htcondor – HTCondor-internals messages (level 1, -d)
+#   htcondor_noun_verb_demo.cli      – CLI / argparse messages     (level 2, -dd)
+
+
+def configure_logging(debug_level: int) -> None:
+    """Enable debug loggers based on the number of ``-d`` flags supplied.
+
+    Parameters
+    ----------
+    debug_level:
+        0  – no debug output (default)
+        1  – HTCondor-internals messages: ClassAd attributes, status codes, etc.
+             (``-d`` / ``--debug``)
+        2+ – additionally, CLI messages: argument parsing, handler dispatch, etc.
+             (``-dd`` / ``--debug --debug``)
+    """
+    if debug_level <= 0:
+        return
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+
+    # Level 1: HTCondor-internals logger
+    htcondor_logger = logging.getLogger("htcondor_noun_verb_demo.htcondor")
+    htcondor_logger.setLevel(logging.DEBUG)
+    htcondor_logger.addHandler(handler)
+    htcondor_logger.propagate = False
+
+    if debug_level >= 2:
+        # Level 2: CLI logger
+        cli_logger = logging.getLogger("htcondor_noun_verb_demo.cli")
+        cli_logger.setLevel(logging.DEBUG)
+        cli_logger.addHandler(handler)
+        cli_logger.propagate = False
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +116,16 @@ def get_parser():
     # Global arguments
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Print extra output"
+    )
+    parser.add_argument(
+        "-d", "--debug", action="count", default=0,
+        help=(
+            "Enable debug output. "
+            "Use once (-d) for HTCondor-internals detail (ClassAd attributes, "
+            "status codes, etc.). "
+            "Use twice (-dd) to also include CLI-level debug (argument parsing, "
+            "handler dispatch, etc.)."
+        ),
     )
 
     # Initialize noun level subparsers
@@ -288,7 +342,13 @@ def main():
     parser = get_parser()
     args = parse_args(parser)
 
+    configure_logging(args.debug)
+
+    _cli_log = logging.getLogger("htcondor_noun_verb_demo.cli")
+    _cli_log.debug("Parsed args: %s", args)
+
     if hasattr(args, "command"):
+        _cli_log.debug("Dispatching to handler: %s", args.command.__name__)
         args.command(args)
     else:
         parser.print_help()
