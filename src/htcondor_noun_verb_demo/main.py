@@ -209,26 +209,22 @@ def get_parser():
     )
     p.add_argument("job_id", help="Job ID to remove (e.g. 1042.0 or 1042)")
     p.add_argument(
-        "-f", "--force-x", action="store_true",
+        "-f", "--force", action="store_true",
         help="Force-remove: skip cleanup hooks",
     )
     p.set_defaults(command=jobs_remove)
 
     # --- jobs edit ---
     p = jobs_verbs.add_parser("edit", help="Edit properties of a job")
-    p._friendly_error = "Provide a job ID, attribute, and value."
+    p._friendly_error = "Provide a job ID and an assignment (e.g. request_memory=30GB)."
     p._friendly_hint = (
-        "Use `htcondor jobs edit <job_id> --attribute <attr> --value <val>`.\n"
-        "       Example: `htcondor jobs edit 1042.0 --attribute RequestMemory --value 8192`"
+        "Use `htcondor jobs edit <job_id> <key>=<value>`.\n"
+        "       Example: `htcondor jobs edit 1042.0 request_memory=30GB`"
     )
     p.add_argument("job_id", help="Job ID to edit (e.g. 1042.0)")
     p.add_argument(
-        "--attribute", required=True,
-        help="Name of the ClassAd attribute to change",
-    )
-    p.add_argument(
-        "--value", required=True,
-        help="New value for the attribute",
+        "assignment",
+        help="Attribute assignment in key=value format (e.g. request_memory=30GB, request_cpus=4)",
     )
     p.set_defaults(command=jobs_edit)
 
@@ -253,8 +249,8 @@ def get_parser():
         help="Show machines available for your jobs",
     )
     p.add_argument(
-        "-c", "--constraint", default=None,
-        help="ClassAd constraint expression to filter machines",
+        "-f", "--filter", dest="filter", default=None,
+        help="Filter machines by keyword or attribute (e.g. 'gpu' or 'Arch=X86_64')",
     )
     p.add_argument(
         "--all", action="store_true",

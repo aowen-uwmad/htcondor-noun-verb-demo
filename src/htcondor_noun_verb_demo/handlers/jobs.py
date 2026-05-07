@@ -6,6 +6,7 @@ default for the corresponding argparse sub-parser created in ``main.py``.
 """
 
 import os
+import re
 import sys
 
 from htcondor_noun_verb_demo.mock_data import MOCK_JOBS, _NOW
@@ -80,6 +81,127 @@ def _status_colour(status_str):
     }
     colour = colours.get(status_str, "")
     return f"{colour}{status_str}{RESET}"
+
+
+# ---------------------------------------------------------------------------
+# Attribute/value parsing helpers for ``jobs edit``
+# ---------------------------------------------------------------------------
+
+# Mapping from submit-file style attribute names to their ClassAd equivalents.
+# Keys are lower-case; values are the canonical ClassAd attribute names.
+_SUBMIT_TO_CLASSAD = {
+    "request_memory": "RequestMemory",
+    "request_cpus": "RequestCpus",
+    "request_disk": "RequestDisk",
+    "request_gpus": "RequestGpus",
+    "priority": "JobPrio",
+    "job_prio": "JobPrio",
+}
+
+# Attributes that store a quantity in MB (convert human-friendly size strings).
+_MEMORY_MB_ATTRS = {"RequestMemory"}
+
+# Attributes that store a quantity in KB (convert human-friendly size strings).
+_DISK_KB_ATTRS = {"RequestDisk"}
+
+
+def _parse_size(value_str, *, unit="MB"):
+    """
+    Parse a human-friendly size string and return an integer in *unit*.
+
+    Examples::
+
+        _parse_size("30GB")    -> 30720  (MB)
+        _parse_size("4 GB")    -> 4096   (MB)
+        _parse_size("512")     -> 512    (MB)  # bare number keeps unit
+        _parse_size("50GB", unit="KB") -> 52428800  (KB)
+
+    Returns ``None`` if the string cannot be parsed.
+    """
+    m = re.match(
+        r"^\s*(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB|B)?\s*$",
+        value_str,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    amount = float(m.group(1))
+    suffix = (m.group(2) or unit).upper()
+    # Convert to bytes first, then to the requested unit.
+    to_bytes = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    from_bytes = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    return int(amount * to_bytes[suffix] / from_bytes[unit])
+
+
+def _normalize_attribute(key):
+    """
+    Normalize an attribute key to its canonical ClassAd name.
+
+    Accepts both submit-file style (``request_memory``) and direct ClassAd
+    names (``RequestMemory``).  Unknown keys are returned as-is.
+    """
+    return _SUBMIT_TO_CLASSAD.get(key.lower(), key)
+
+
+def _parse_assignment(assignment):
+    """
+    Parse a ``key=value`` assignment string.
+
+    Returns ``(classad_attr, raw_value, display_value)`` where:
+    - *classad_attr* is the canonical ClassAd attribute name
+    - *raw_value* is the value to store internally (converted for memory/disk)
+    - *display_value* is a human-friendly string for output (e.g. ``"30 GB"``)
+
+    Raises ``SystemExit`` with a friendly error for invalid input.
+    """
+    if "=" not in assignment:
+        print_error(
+            f"Invalid assignment '{assignment}'. "
+            "Expected format: key=value (e.g. request_memory=30GB)."
+        )
+        sys.exit(1)
+
+    key, _, value_str = assignment.partition("=")
+    key = key.strip()
+    value_str = value_str.strip()
+
+    if not key or not value_str:
+        print_error(
+            f"Invalid assignment '{assignment}'. "
+            "Both a key and a value are required (e.g. request_memory=30GB)."
+        )
+        sys.exit(1)
+
+    classad_attr = _normalize_attribute(key)
+
+    # Convert memory values (stored in MB).
+    if classad_attr in _MEMORY_MB_ATTRS:
+        mb = _parse_size(value_str, unit="MB")
+        if mb is None:
+            print_error(
+                f"Could not parse memory value '{value_str}'. "
+                "Use a number optionally followed by MB, GB, or TB (e.g. 30GB, 2048MB)."
+            )
+            sys.exit(1)
+        raw_value = mb
+        display_value = format_memory(mb)
+        return classad_attr, raw_value, display_value
+
+    # Convert disk values (stored in KB).
+    if classad_attr in _DISK_KB_ATTRS:
+        kb = _parse_size(value_str, unit="KB")
+        if kb is None:
+            print_error(
+                f"Could not parse disk value '{value_str}'. "
+                "Use a number optionally followed by KB, MB, GB, or TB (e.g. 50GB, 10000000)."
+            )
+            sys.exit(1)
+        raw_value = kb
+        display_value = format_memory(kb // 1024) if kb >= 1024 else f"{kb} KB"
+        return classad_attr, raw_value, display_value
+
+    # For all other attributes, pass the value through.
+    return classad_attr, value_str, value_str
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +388,7 @@ def jobs_hold(args):
     print_confirmation("held", label, extra)
 
     if getattr(args, "verbose", False):
-        line = f"\n  {DIM}JobStatus changed: 2 (Running) → 5 (Held)"
+        line = f"\n  {DIM}JobStatus changed: Running → Held"
         if reason:
             line += f"\n  HoldReason set: \"{reason}\""
         print(line + RESET)
@@ -283,7 +405,7 @@ def jobs_release(args):
     print_confirmation("released", label)
 
     if getattr(args, "verbose", False):
-        print(f"\n  {DIM}JobStatus changed: 5 (Held) → 1 (Idle)")
+        print(f"\n  {DIM}JobStatus changed: Held → Idle")
         print(f"  HoldReason cleared.{RESET}")
 
     print_hint(f"Use `htcondor jobs status {label}` to monitor this job.")
@@ -292,7 +414,7 @@ def jobs_release(args):
 def jobs_remove(args):
     """Handle ``htcondor jobs remove <job_id>``."""
     job_id_raw = args.job_id
-    force = getattr(args, "force_x", False)
+    force = getattr(args, "force", False)
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
@@ -300,7 +422,7 @@ def jobs_remove(args):
     print_confirmation(action, label)
 
     if getattr(args, "verbose", False):
-        line = f"\n  {DIM}JobStatus changed: → 3 (Removed)"
+        line = f"\n  {DIM}JobStatus changed: → Removed"
         if force:
             line += "\n  Force-remove: job will not run cleanup hooks."
         print(line + RESET)
@@ -309,17 +431,18 @@ def jobs_remove(args):
 
 
 def jobs_edit(args):
-    """Handle ``htcondor jobs edit <job_id> --attribute <attr> --value <val>``."""
+    """Handle ``htcondor jobs edit <job_id> <key>=<value>``."""
     job_id_raw = args.job_id
-    attribute = args.attribute
-    value = args.value
+    assignment = args.assignment
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
-    print(f"{GREEN}✓{RESET} Job {BOLD}{label}{RESET}: set {BOLD}{attribute}{RESET} = {value}")
+    classad_attr, raw_value, display_value = _parse_assignment(assignment)
+
+    print(f"{GREEN}✓{RESET} Job {BOLD}{label}{RESET}: set {BOLD}{classad_attr}{RESET} = {display_value}")
 
     if getattr(args, "verbose", False):
-        print(f"\n  {DIM}Attribute '{attribute}' updated for job {label}.{RESET}")
+        print(f"\n  {DIM}Attribute '{classad_attr}' updated to {display_value} for job {label}.{RESET}")
 
     print_hint(
         f"Use `htcondor jobs status {label}` to verify the change."
