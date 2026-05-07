@@ -150,7 +150,7 @@ def format_memory(mb):
 # Verbose / debug detail helpers
 # ---------------------------------------------------------------------------
 
-def print_detail_block(pairs, indent="  ", label_color=None):
+def print_detail_block(pairs, indent="  ", label_color=None, leading_blank=True):
     """Print a tidy aligned key : value block for verbose output.
 
     Parameters
@@ -161,13 +161,18 @@ def print_detail_block(pairs, indent="  ", label_color=None):
         Leading whitespace before each line (default: two spaces).
     label_color:
         ANSI color string to apply to the key labels.  Defaults to CYAN.
+    leading_blank:
+        If ``True`` (the default), print a blank line before the first
+        key/value pair.  Pass ``False`` when this block immediately follows
+        a ``print_detail_header()`` call to avoid a double blank line.
     """
     if not pairs:
         return
     if label_color is None:
         label_color = CYAN
     key_width = max(len(str(k)) for k, _ in pairs)
-    print()
+    if leading_blank:
+        print()
     for key, value in pairs:
         print(f"{indent}{label_color}{str(key):<{key_width}}{RESET} : {value}")
 

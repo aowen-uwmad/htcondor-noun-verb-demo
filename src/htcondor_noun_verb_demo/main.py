@@ -11,9 +11,6 @@ import sys
 from typing import Optional
 
 from htcondor_noun_verb_demo.formatting import (
-    CYAN,
-    DIM,
-    RESET,
     YELLOW,
     print_detail_block,
     print_detail_header,
@@ -74,6 +71,9 @@ def configure_logging(debug_level: int) -> None:
         "htcondor_noun_verb_demo.cli",
     ):
         logger = logging.getLogger(name)
+        if logger.handlers:
+            # Already configured (e.g. main() called more than once in tests).
+            continue
         logger.setLevel(logging.DEBUG)
         logger.addHandler(raw_handler)
         logger.propagate = False
@@ -367,6 +367,7 @@ def main():
                     ("Arguments", str(args)),
                 ],
                 label_color=YELLOW,
+                leading_blank=False,
             )
             print()
 

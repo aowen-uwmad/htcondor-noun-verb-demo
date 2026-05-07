@@ -16,7 +16,6 @@ from htcondor_noun_verb_demo.formatting import (
     CYAN,
     DIM,
     GREEN,
-    MAGENTA,
     RED,
     RESET,
     YELLOW,
@@ -100,6 +99,21 @@ def _job_label(cluster, proc=None):
     if proc is not None:
         return f"{cluster}.{proc}"
     return f"{cluster}.*"
+
+
+def _status_summary(matched_jobs):
+    """Return a concise status summary for one or more matched jobs.
+
+    For a single job (or all with the same status) returns e.g. ``"Running"``.
+    For mixed-status clusters returns e.g. ``"Running (2), Idle (1)"``.
+    """
+    counts = {}
+    for j in matched_jobs:
+        s = j["JobStatusStr"]
+        counts[s] = counts.get(s, 0) + 1
+    if len(counts) == 1:
+        return next(iter(counts.keys()))
+    return ", ".join(f"{s} ({n})" for s, n in counts.items())
 
 
 def _status_colour(status_str):
@@ -280,7 +294,7 @@ def jobs_submit(args):
         print_detail_block([
             ("submit_file", submit_file),
             ("condor_submit", "htcondor_noun_verb_demo.handlers.jobs.jobs_submit"),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     print_hint(
         f"Use `htcondor jobs status {cluster_id}` to monitor your jobs, "
@@ -382,7 +396,7 @@ def jobs_status(args):
             if j.get("HoldReason"):
                 pairs.append(("Hold reason", j["HoldReason"]))
             print_detail_header(f"Job {jid}")
-            print_detail_block(pairs)
+            print_detail_block(pairs, leading_blank=False)
 
     # Level 2: filter / parsing detail
     if debug == 2:
@@ -399,12 +413,12 @@ def jobs_status(args):
                 ("Job ID input",  job_id_raw),
                 ("Parsed",        f"ClusterId={parsed_cluster}, ProcId={proc_str}"),
                 ("Filter result", f"{len(jobs)} job(s) matched"),
-            ], label_color=YELLOW)
+            ], label_color=YELLOW, leading_blank=False)
         else:
             print_detail_block([
                 ("Job ID input",  "(none — all jobs)"),
                 ("Filter result", f"{len(jobs)} job(s) matched"),
-            ], label_color=YELLOW)
+            ], label_color=YELLOW, leading_blank=False)
 
     print_hint(
         "Use `htcondor jobs status <job_id>` for a specific job, "
@@ -491,7 +505,7 @@ def jobs_report(args):
             ("Jobs scanned",    str(total)),
             ("Clusters found",  str(clusters)),
             ("Status counters", str(status_counts)),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     print_hint(
         "Use `htcondor jobs status <job_id>` to inspect a specific job, "
@@ -542,7 +556,7 @@ def jobs_interact(args):
             print_detail_block([
                 ("job_id input", job_id),
                 ("Parsed",       f"ClusterId={cluster}, ProcId={proc}"),
-            ], label_color=YELLOW)
+            ], label_color=YELLOW, leading_blank=False)
 
         print_hint(
             f"When finished, use `htcondor jobs status {cluster}.{proc}` to verify the job is still running."
@@ -576,7 +590,7 @@ def jobs_interact(args):
             print_detail_block([
                 ("submit_file", submit_file),
                 ("mode",        "interactive (-i)"),
-            ], label_color=YELLOW)
+            ], label_color=YELLOW, leading_blank=False)
 
         print_hint(
             f"While connected, use another terminal to run "
@@ -600,12 +614,11 @@ def jobs_hold(args):
     cluster, proc = _parse_job_id(job_id_raw)
     label = _job_label(cluster, proc)
 
-    # Determine previous status from mock data for detail block
     matched = [
         j for j in MOCK_JOBS
         if j["ClusterId"] == cluster and (proc is None or j["ProcId"] == proc)
     ]
-    prev_status = matched[0]["JobStatusStr"] if matched else "Unknown"
+    prev_status = _status_summary(matched) if matched else "Unknown"
 
     extra = ""
     if reason:
@@ -635,7 +648,7 @@ def jobs_hold(args):
             ("job_id input", job_id_raw),
             ("Parsed",       f"ClusterId={cluster}, ProcId={proc if proc is not None else 'all'}"),
             ("reason",       reason or "(none)"),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     if getattr(args, "verbose", False):
         line = f"\n  {DIM}JobStatus changed: Running → Held"
@@ -658,8 +671,12 @@ def jobs_release(args):
         j for j in MOCK_JOBS
         if j["ClusterId"] == cluster and (proc is None or j["ProcId"] == proc)
     ]
-    prev_status = matched[0]["JobStatusStr"] if matched else "Unknown"
-    prev_reason = matched[0].get("HoldReason", "") if matched else ""
+    prev_status = _status_summary(matched) if matched else "Unknown"
+    # Collect distinct hold reasons across all matched jobs (may be empty for
+    # non-held jobs).
+    prev_reasons = list(
+        dict.fromkeys(j.get("HoldReason", "") for j in matched if j.get("HoldReason"))
+    )
 
     print_confirmation("released", label)
 
@@ -674,8 +691,9 @@ def jobs_release(args):
             ("Status change", f"{prev_status} → {_status_colour('Idle')}"),
             ("ClassAd attr",  "JobStatus = 1  (HoldReason cleared)"),
         ]
-        if prev_reason:
-            pairs.insert(2, ("Previous reason", prev_reason))
+        if prev_reasons:
+            reason_str = prev_reasons[0] if len(prev_reasons) == 1 else "; ".join(prev_reasons)
+            pairs.insert(2, ("Previous reason", reason_str))
         print_detail_block(pairs)
 
     if debug == 2:
@@ -683,7 +701,7 @@ def jobs_release(args):
         print_detail_block([
             ("job_id input", job_id_raw),
             ("Parsed",       f"ClusterId={cluster}, ProcId={proc if proc is not None else 'all'}"),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     if getattr(args, "verbose", False):
         print(f"\n  {DIM}JobStatus changed: Held → Idle")
@@ -705,7 +723,7 @@ def jobs_remove(args):
         j for j in MOCK_JOBS
         if j["ClusterId"] == cluster and (proc is None or j["ProcId"] == proc)
     ]
-    prev_status = matched[0]["JobStatusStr"] if matched else "Unknown"
+    prev_status = _status_summary(matched) if matched else "Unknown"
 
     action = "forcefully removed" if force else "removed"
     print_confirmation(action, label)
@@ -734,7 +752,7 @@ def jobs_remove(args):
             ("job_id input", job_id_raw),
             ("Parsed",       f"ClusterId={cluster}, ProcId={proc if proc is not None else 'all'}"),
             ("force",        str(force)),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     if getattr(args, "verbose", False):
         line = f"\n  {DIM}JobStatus changed: → Removed"
@@ -770,14 +788,9 @@ def jobs_edit(args):
         ]
         if original_key.lower() != classad_attr.lower():
             pairs.append(("Key input",   f"{original_key}  →  {classad_attr}  (normalized)"))
-        # Show the user-supplied raw string; if the key was normalized (e.g.
-        # request_memory → RequestMemory) the raw string is the right-hand side
-        # of the assignment, otherwise it is the already-converted raw_value.
-        input_display = (
-            assignment.split("=", 1)[1].strip()
-            if original_key.lower() != classad_attr.lower()
-            else str(raw_value)
-        )
+        # Always show the user-supplied RHS of the assignment as "Input value"
+        # so that (e.g.) "30GB" is shown, not the internally-converted integer.
+        input_display = assignment.split("=", 1)[1].strip()
         pairs.append(("Input value",  input_display))
         if str(raw_value) != display_value:
             pairs.append(("Stored value", str(raw_value)))
@@ -792,7 +805,7 @@ def jobs_edit(args):
             ("assignment",    assignment),
             ("ClassAd attr",  classad_attr),
             ("raw_value",     str(raw_value)),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     if getattr(args, "verbose", False):
         print(f"\n  {DIM}Attribute '{classad_attr}' updated to {display_value} for job {label}.{RESET}")

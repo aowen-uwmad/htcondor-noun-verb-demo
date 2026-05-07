@@ -135,7 +135,7 @@ def pool_status(args):
                 ("Memory",   format_memory(m["TotalMemory"])),
                 ("Load avg", f"{m['LoadAvg']:.2f}"),
             ]
-            print_detail_block(pairs)
+            print_detail_block(pairs, leading_blank=False)
 
     # Level 2: filter / scan detail
     if debug == 2:
@@ -146,7 +146,7 @@ def pool_status(args):
             ("Total scanned", str(len(MOCK_MACHINES))),
             ("Shown",         str(len(machines))),
             ("Hidden",        str(len(MOCK_MACHINES) - len(machines))),
-        ], label_color=YELLOW)
+        ], label_color=YELLOW, leading_blank=False)
 
     print_hint(
         "Use `htcondor pool status --all` to see all machines, "
