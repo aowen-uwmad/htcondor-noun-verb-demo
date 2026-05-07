@@ -10,7 +10,16 @@ import logging
 import sys
 from typing import Optional
 
-from htcondor_noun_verb_demo.formatting import print_error, print_hint
+from htcondor_noun_verb_demo.formatting import (
+    CYAN,
+    DIM,
+    RESET,
+    YELLOW,
+    print_detail_block,
+    print_detail_header,
+    print_error,
+    print_hint,
+)
 
 from htcondor_noun_verb_demo.handlers.jobs import (
     jobs_edit,
@@ -30,107 +39,44 @@ from htcondor_noun_verb_demo.handlers.pool import (
 
 
 # ---------------------------------------------------------------------------
-# Debug logging setup
+# Debug / verbose logging setup
 # ---------------------------------------------------------------------------
 
 _LOG_FORMAT_RAW = "[%(levelname)s:%(name)s] %(message)s"
 
-# ANSI color codes used by the debug formatters
-_ANSI_CYAN = "36"
-_ANSI_YELLOW = "33"
-
-# Debug tag labels – kept here so label-column width is calculated once
-_TAG_HTCONDOR = "[htcondor]"
-_TAG_CLI = "[cli]"
-_TAG_WIDTH = max(len(_TAG_HTCONDOR), len(_TAG_CLI))
-
-# Module-level loggers used throughout the package:
-#   htcondor_noun_verb_demo.htcondor – HTCondor-internals messages (-d, level 1)
-#   htcondor_noun_verb_demo.cli      – CLI / argparse messages     (-dd, level 2)
-
-
-class _ColoredDebugFormatter(logging.Formatter):
-    """Formatter that emits clean, human-readable colored debug lines.
-
-    Used for levels 1 and 2.  Each line looks like::
-
-        [htcondor]  Job ClassAd 1042.0: JobStatus=2 (Running) …
-        [cli]       jobs_status called with job_id='1042.0'
-
-    The *tag* label is colorized when stderr is a TTY.
-    """
-
-    _ANSI_RESET = "\033[0m"
-
-    def __init__(self, tag: str, ansi_code: str) -> None:
-        super().__init__()
-        self._tag = tag
-        self._ansi_code = ansi_code
-        self._label_width = _TAG_WIDTH
-
-    def format(self, record: logging.LogRecord) -> str:
-        msg = record.getMessage()
-        use_color = hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
-        if use_color:
-            tag = f"\033[{self._ansi_code}m{self._tag}{self._ANSI_RESET}"
-        else:
-            tag = self._tag
-        # Pad plaintext tag for alignment (ANSI codes are invisible)
-        plain_len = len(self._tag)
-        pad = max(0, self._label_width - plain_len)
-        return f"  {tag}{' ' * pad}  {msg}"
+# Module-level loggers — only activated at level 3 (-ddd).
+# Levels 1 and 2 emit formatted detail directly from the handlers.
+#   htcondor_noun_verb_demo.htcondor – HTCondor ClassAd / internals messages
+#   htcondor_noun_verb_demo.cli      – CLI / argparse messages
 
 
 def configure_logging(debug_level: int) -> None:
-    """Enable debug loggers based on the number of ``-d`` flags supplied.
+    """Activate raw structured debug logging at level 3+.
 
     Parameters
     ----------
     debug_level:
-        0  – no debug output (default)
-        1  – Simple colored HTCondor-internals output: ClassAd attributes,
-             status codes, value conversions, etc.  (``-d``)
-        2  – Additionally, simple colored CLI output: handler dispatch,
-             argument parsing, filter details, etc.  (``-dd``)
-        3+ – Full structured debug logging for both loggers, with the raw
-             ``[DEBUG:logger_name]`` prefix.  (``-ddd``)
+        0  – no extra output (default)
+        1  – colored key:value detail blocks from handlers  (``-d``)
+        2  – additionally, CLI dispatch / argparse detail   (``-dd``)
+        3+ – full structured ``[DEBUG:logger_name]`` logging (``-ddd``)
+
+    Levels 1 and 2 are handled entirely by direct ``print`` calls inside
+    the individual handlers; no logging framework setup is needed for them.
     """
-    if debug_level <= 0:
+    if debug_level < 3:
         return
 
-    if debug_level >= 3:
-        # Full structured format: [DEBUG:logger_name] message
-        raw_handler = logging.StreamHandler(sys.stderr)
-        raw_handler.setFormatter(logging.Formatter(_LOG_FORMAT_RAW))
-
-        for name in (
-            "htcondor_noun_verb_demo.htcondor",
-            "htcondor_noun_verb_demo.cli",
-        ):
-            logger = logging.getLogger(name)
-            logger.setLevel(logging.DEBUG)
-            logger.addHandler(raw_handler)
-            logger.propagate = False
-    else:
-        # Levels 1 and 2: friendly colored output
-        htcondor_handler = logging.StreamHandler(sys.stderr)
-        htcondor_handler.setFormatter(
-            _ColoredDebugFormatter(_TAG_HTCONDOR, _ANSI_CYAN)
-        )
-        htcondor_logger = logging.getLogger("htcondor_noun_verb_demo.htcondor")
-        htcondor_logger.setLevel(logging.DEBUG)
-        htcondor_logger.addHandler(htcondor_handler)
-        htcondor_logger.propagate = False
-
-        if debug_level >= 2:
-            cli_handler = logging.StreamHandler(sys.stderr)
-            cli_handler.setFormatter(
-                _ColoredDebugFormatter(_TAG_CLI, _ANSI_YELLOW)
-            )
-            cli_logger = logging.getLogger("htcondor_noun_verb_demo.cli")
-            cli_logger.setLevel(logging.DEBUG)
-            cli_logger.addHandler(cli_handler)
-            cli_logger.propagate = False
+    raw_handler = logging.StreamHandler(sys.stderr)
+    raw_handler.setFormatter(logging.Formatter(_LOG_FORMAT_RAW))
+    for name in (
+        "htcondor_noun_verb_demo.htcondor",
+        "htcondor_noun_verb_demo.cli",
+    ):
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(raw_handler)
+        logger.propagate = False
 
 
 # ---------------------------------------------------------------------------
@@ -181,9 +127,10 @@ def get_parser():
     parser.add_argument(
         "-d", "--debug", action="count", default=0,
         help=(
-            "Enable debug output (repeatable). "
-            "-d: colored HTCondor-internals detail (ClassAd attributes, status codes, etc.). "
-            "-dd: additionally, colored CLI detail (handler dispatch, argument parsing, etc.). "
+            "Enable verbose/debug output (repeatable). "
+            "-d: clean, colored detail blocks for each operation "
+            "(attribute values, status changes, resource usage). "
+            "-dd: additionally, CLI dispatch and argument-parsing detail. "
             "-ddd: full structured debug logging."
         ),
     )
@@ -404,11 +351,25 @@ def main():
 
     configure_logging(args.debug)
 
+    # Level 3: structured logging (activated by configure_logging above)
     _cli_log = logging.getLogger("htcondor_noun_verb_demo.cli")
     _cli_log.debug("Parsed args: %s", args)
 
     if hasattr(args, "command"):
         _cli_log.debug("Dispatching to handler: %s", args.command.__name__)
+
+        # Level 2: clean CLI dispatch detail before running the handler
+        if args.debug == 2:
+            print_detail_header("CLI dispatch")
+            print_detail_block(
+                [
+                    ("Handler", args.command.__name__),
+                    ("Arguments", str(args)),
+                ],
+                label_color=YELLOW,
+            )
+            print()
+
         args.command(args)
     else:
         parser.print_help()

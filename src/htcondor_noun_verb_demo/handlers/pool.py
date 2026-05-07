@@ -16,6 +16,8 @@ from htcondor_noun_verb_demo.formatting import (
     RESET,
     YELLOW,
     format_memory,
+    print_detail_block,
+    print_detail_header,
     print_hint,
     print_section,
     print_table,
@@ -23,13 +25,10 @@ from htcondor_noun_verb_demo.formatting import (
 
 
 # ---------------------------------------------------------------------------
-# Module-level loggers
+# Module-level loggers  (only activated at debug level 3 / -ddd)
 # ---------------------------------------------------------------------------
 
-# Level 1 (-d): HTCondor-internals detail (machine ClassAd attributes, …)
 _htcondor_log = logging.getLogger("htcondor_noun_verb_demo.htcondor")
-
-# Level 2 (-dd): CLI / argument-parsing detail
 _cli_log = logging.getLogger("htcondor_noun_verb_demo.cli")
 
 
@@ -67,6 +66,7 @@ def _activity_colour(activity):
 
 def pool_status(args):
     """Handle ``htcondor pool status``."""
+    debug = getattr(args, "debug", 0)
     show_all = getattr(args, "all", False)
     filter_expr = getattr(args, "filter", None)
     _cli_log.debug(
@@ -123,6 +123,30 @@ def pool_status(args):
         hidden = len(MOCK_MACHINES) - len(machines)
         if hidden > 0:
             print(f"{DIM}({hidden} machine(s) hidden — use --all to include machines you cannot access){RESET}")
+
+    # Level 1: per-machine ClassAd detail blocks
+    if 0 < debug < 3:
+        for m in machines:
+            print_detail_header(m["Name"])
+            pairs = [
+                ("State",    f"{_state_colour(m['State'])} / {_activity_colour(m['Activity'])}"),
+                ("OS / Arch", f"{m['OpSys']} / {m['Arch']}"),
+                ("CPUs",     str(m["TotalCpus"])),
+                ("Memory",   format_memory(m["TotalMemory"])),
+                ("Load avg", f"{m['LoadAvg']:.2f}"),
+            ]
+            print_detail_block(pairs)
+
+    # Level 2: filter / scan detail
+    if debug == 2:
+        print_detail_header("CLI detail")
+        print_detail_block([
+            ("show_all",      str(show_all)),
+            ("filter_expr",   filter_expr or "(none)"),
+            ("Total scanned", str(len(MOCK_MACHINES))),
+            ("Shown",         str(len(machines))),
+            ("Hidden",        str(len(MOCK_MACHINES) - len(machines))),
+        ], label_color=YELLOW)
 
     print_hint(
         "Use `htcondor pool status --all` to see all machines, "
