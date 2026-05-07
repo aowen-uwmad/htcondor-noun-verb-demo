@@ -26,6 +26,7 @@ GREEN = _sgr("32")
 YELLOW = _sgr("33")
 RED = _sgr("31")
 CYAN = _sgr("36")
+MAGENTA = _sgr("35")
 RESET = _sgr("0")
 
 
@@ -143,3 +144,39 @@ def format_memory(mb):
     if mb >= 1024:
         return f"{mb / 1024:.0f} GB"
     return f"{mb} MB"
+
+
+# ---------------------------------------------------------------------------
+# Verbose / debug detail helpers
+# ---------------------------------------------------------------------------
+
+def print_detail_block(pairs, indent="  ", label_color=None, leading_blank=True):
+    """Print a tidy aligned key : value block for verbose output.
+
+    Parameters
+    ----------
+    pairs:
+        Iterable of ``(key, value)`` tuples to display.
+    indent:
+        Leading whitespace before each line (default: two spaces).
+    label_color:
+        ANSI color string to apply to the key labels.  Defaults to CYAN.
+    leading_blank:
+        If ``True`` (the default), print a blank line before the first
+        key/value pair.  Pass ``False`` when this block immediately follows
+        a ``print_detail_header()`` call to avoid a double blank line.
+    """
+    if not pairs:
+        return
+    if label_color is None:
+        label_color = CYAN
+    key_width = max(len(str(k)) for k, _ in pairs)
+    if leading_blank:
+        print()
+    for key, value in pairs:
+        print(f"{indent}{label_color}{str(key):<{key_width}}{RESET} : {value}")
+
+
+def print_detail_header(title, indent="  "):
+    """Print a small section heading inside a verbose detail block."""
+    print(f"\n{indent}{BOLD}{title}{RESET}")

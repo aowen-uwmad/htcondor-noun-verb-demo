@@ -6,10 +6,17 @@ attaches arguments/options, and delegates to handler functions.
 """
 
 import argparse
+import logging
 import sys
 from typing import Optional
 
-from htcondor_noun_verb_demo.formatting import print_error, print_hint
+from htcondor_noun_verb_demo.formatting import (
+    YELLOW,
+    print_detail_block,
+    print_detail_header,
+    print_error,
+    print_hint,
+)
 
 from htcondor_noun_verb_demo.handlers.jobs import (
     jobs_edit,
@@ -26,6 +33,50 @@ from htcondor_noun_verb_demo.handlers.pool import (
     pool_help,
     pool_status,
 )
+
+
+# ---------------------------------------------------------------------------
+# Debug / verbose logging setup
+# ---------------------------------------------------------------------------
+
+_LOG_FORMAT_RAW = "[%(levelname)s:%(name)s] %(message)s"
+
+# Module-level loggers — only activated at level 3 (-ddd).
+# Levels 1 and 2 emit formatted detail directly from the handlers.
+#   htcondor_noun_verb_demo.htcondor – HTCondor ClassAd / internals messages
+#   htcondor_noun_verb_demo.cli      – CLI / argparse messages
+
+
+def configure_logging(debug_level: int) -> None:
+    """Activate raw structured debug logging at level 3+.
+
+    Parameters
+    ----------
+    debug_level:
+        0  – no extra output (default)
+        1  – colored key:value detail blocks from handlers  (``-d``)
+        2  – additionally, CLI dispatch / argparse detail   (``-dd``)
+        3+ – full structured ``[DEBUG:logger_name]`` logging (``-ddd``)
+
+    Levels 1 and 2 are handled entirely by direct ``print`` calls inside
+    the individual handlers; no logging framework setup is needed for them.
+    """
+    if debug_level < 3:
+        return
+
+    raw_handler = logging.StreamHandler(sys.stderr)
+    raw_handler.setFormatter(logging.Formatter(_LOG_FORMAT_RAW))
+    for name in (
+        "htcondor_noun_verb_demo.htcondor",
+        "htcondor_noun_verb_demo.cli",
+    ):
+        logger = logging.getLogger(name)
+        if logger.handlers:
+            # Already configured (e.g. main() called more than once in tests).
+            continue
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(raw_handler)
+        logger.propagate = False
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +123,16 @@ def get_parser():
     # Global arguments
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Print extra output"
+    )
+    parser.add_argument(
+        "-d", "--debug", action="count", default=0,
+        help=(
+            "Enable verbose/debug output (repeatable). "
+            "-d: clean, colored detail blocks for each operation "
+            "(attribute values, status changes, resource usage). "
+            "-dd: additionally, CLI dispatch and argument-parsing detail. "
+            "-ddd: full structured debug logging."
+        ),
     )
 
     # Initialize noun level subparsers
@@ -288,7 +349,28 @@ def main():
     parser = get_parser()
     args = parse_args(parser)
 
+    configure_logging(args.debug)
+
+    # Level 3: structured logging (activated by configure_logging above)
+    _cli_log = logging.getLogger("htcondor_noun_verb_demo.cli")
+    _cli_log.debug("Parsed args: %s", args)
+
     if hasattr(args, "command"):
+        _cli_log.debug("Dispatching to handler: %s", args.command.__name__)
+
+        # Level 2: clean CLI dispatch detail before running the handler
+        if args.debug == 2:
+            print_detail_header("CLI dispatch")
+            print_detail_block(
+                [
+                    ("Handler", args.command.__name__),
+                    ("Arguments", str(args)),
+                ],
+                label_color=YELLOW,
+                leading_blank=False,
+            )
+            print()
+
         args.command(args)
     else:
         parser.print_help()
