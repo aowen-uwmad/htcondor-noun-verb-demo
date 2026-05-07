@@ -269,7 +269,7 @@ def _parse_assignment(assignment):
 # ---------------------------------------------------------------------------
 
 def jobs_submit(args):
-    """Handle ``htcondor jobs submit <submit_file>``."""
+    """Handle ``htcondor jobs submit <submit-file>``."""
     debug = getattr(args, "debug", 0)
     submit_file = args.submit_file
     _cli_log.debug("jobs_submit called with submit_file=%r", submit_file)
@@ -421,7 +421,7 @@ def jobs_status(args):
             ], label_color=YELLOW, leading_blank=False)
 
     print_hint(
-        "Use `htcondor jobs status <job_id>` for a specific job, "
+        "Use `htcondor jobs status <job-id>` for a specific job, "
         "or `htcondor jobs report` for an aggregate summary."
     )
 
@@ -508,8 +508,8 @@ def jobs_report(args):
         ], label_color=YELLOW, leading_blank=False)
 
     print_hint(
-        "Use `htcondor jobs status <job_id>` to inspect a specific job, "
-        "or `htcondor jobs release <job_id>` to release held jobs."
+        "Use `htcondor jobs status <job-id>` to inspect a specific job, "
+        "or `htcondor jobs release <job-id>` to release held jobs."
     )
 
 
@@ -523,7 +523,7 @@ def jobs_interact(args):
     if submit_file and job_id:
         print_error("Provide either a submit file or a job ID, not both.")
         print_hint(
-            "Use `htcondor jobs interact <submit_file>` to start a new interactive job,\n"
+            "Use `htcondor jobs interact <submit-file>` to start a new interactive job,\n"
             "       or `htcondor jobs interact --job-id <id>` to SSH into an existing job."
         )
         sys.exit(1)
@@ -599,14 +599,14 @@ def jobs_interact(args):
     else:
         print_error("Provide a submit file or a --job-id to connect to.")
         print_hint(
-            "Use `htcondor jobs interact <submit_file>` to start a new interactive job,\n"
+            "Use `htcondor jobs interact <submit-file>` to start a new interactive job,\n"
             "       or `htcondor jobs interact --job-id <id>` to SSH into an existing job."
         )
         sys.exit(1)
 
 
 def jobs_hold(args):
-    """Handle ``htcondor jobs hold <job_id>``."""
+    """Handle ``htcondor jobs hold <job-id>``."""
     debug = getattr(args, "debug", 0)
     job_id_raw = args.job_id
     reason = getattr(args, "reason", None)
@@ -660,7 +660,7 @@ def jobs_hold(args):
 
 
 def jobs_release(args):
-    """Handle ``htcondor jobs release <job_id>``."""
+    """Handle ``htcondor jobs release <job-id>``."""
     debug = getattr(args, "debug", 0)
     job_id_raw = args.job_id
     _cli_log.debug("jobs_release called with job_id=%r", job_id_raw)
@@ -711,7 +711,7 @@ def jobs_release(args):
 
 
 def jobs_remove(args):
-    """Handle ``htcondor jobs remove <job_id>``."""
+    """Handle ``htcondor jobs remove <job-id>``."""
     debug = getattr(args, "debug", 0)
     job_id_raw = args.job_id
     force = getattr(args, "force", False)
@@ -764,7 +764,7 @@ def jobs_remove(args):
 
 
 def jobs_edit(args):
-    """Handle ``htcondor jobs edit <job_id> <key>=<value>``."""
+    """Handle ``htcondor jobs edit <job-id> <key>=<value>``."""
     debug = getattr(args, "debug", 0)
     job_id_raw = args.job_id
     assignment = args.assignment
