@@ -137,7 +137,9 @@ def format_duration(td):
 
 
 def format_memory(mb):
-    """Format memory in MB as a human-friendly string (e.g. '4 GB')."""
+    """Format memory in MB as a human-friendly string (e.g. '4 GB', '2 TB')."""
+    if mb >= 1024 * 1024:
+        return f"{mb / (1024 * 1024):.0f} TB"
     if mb >= 1024:
         return f"{mb / 1024:.0f} GB"
     return f"{mb} MB"

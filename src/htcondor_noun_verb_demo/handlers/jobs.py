@@ -442,7 +442,7 @@ def jobs_edit(args):
     print(f"{GREEN}✓{RESET} Job {BOLD}{label}{RESET}: set {BOLD}{classad_attr}{RESET} = {display_value}")
 
     if getattr(args, "verbose", False):
-        print(f"\n  {DIM}Attribute '{classad_attr}' updated to {raw_value} for job {label}.{RESET}")
+        print(f"\n  {DIM}Attribute '{classad_attr}' updated to {display_value} for job {label}.{RESET}")
 
     print_hint(
         f"Use `htcondor jobs status {label}` to verify the change."
