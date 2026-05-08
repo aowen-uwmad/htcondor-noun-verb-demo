@@ -109,7 +109,7 @@ JOB_ID  STATUS     CPUS  MEMORY  RUN TIME  CMD
 
 Total: 6 job(s)  (2 Running, 2 Idle, 1 Held, 1 Completed)
 
-Hint: Use `htcondor jobs status <job_id>` for a specific job, or `htcondor jobs report` for an aggregate summary.
+Hint: Use `htcondor jobs status <job-id>` for a specific job, or `htcondor jobs report` for an aggregate summary.
 ```
 
 Filter by cluster ID:
@@ -125,7 +125,7 @@ JOB_ID  STATUS   CPUS  MEMORY  RUN TIME  CMD
 
 Total: 3 job(s)  (2 Running, 1 Idle)
 
-Hint: Use `htcondor jobs status <job_id>` for a specific job, or `htcondor jobs report` for an aggregate summary.
+Hint: Use `htcondor jobs status <job-id>` for a specific job, or `htcondor jobs report` for an aggregate summary.
 ```
 
 Get a high-level summary:
@@ -147,7 +147,7 @@ Job Report for adesai
   ⚠  1 job(s) are held:
      1043.0: Job exceeded memory limit (request_memory = 16 GB)
 
-Hint: Use `htcondor jobs status <job_id>` to inspect a specific job, or `htcondor jobs release <job_id>` to release held jobs.
+Hint: Use `htcondor jobs status <job-id>` to inspect a specific job, or `htcondor jobs release <job-id>` to release held jobs.
 ```
 
 ---

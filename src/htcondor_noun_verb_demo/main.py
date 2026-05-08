@@ -194,10 +194,14 @@ def get_parser():
     p = jobs_verbs.add_parser("submit", help="Submit HTCondor job(s)")
     p._friendly_error = "Provide a submit description file."
     p._friendly_hint = (
-        "Use `htcondor jobs submit <submit_file>` to submit jobs.\n"
+        "Use `htcondor jobs submit <submit-file>` to submit jobs.\n"
         "       Example: `htcondor jobs submit analysis.sub`"
     )
-    p.add_argument("submit_file", help="Path to the submit description file")
+    p.add_argument(
+        "submit_file",
+        metavar="submit-file",
+        help="Path to the submit description file",
+    )
     p.set_defaults(command=jobs_submit)
 
     # --- jobs status ---
@@ -206,6 +210,7 @@ def get_parser():
     )
     p.add_argument(
         "job_id", nargs="?", default=None,
+        metavar="job-id",
         help="Job ID (e.g. 1042.0 or 1042); omit to see all your jobs",
     )
     p.set_defaults(command=jobs_status)
@@ -221,7 +226,7 @@ def get_parser():
         "interact", help="Log in to or start an interactive HTCondor job"
     )
     p.add_argument(
-        "submit_file", nargs="?", default=None,
+        "submit_file", nargs="?", default=None, metavar="submit-file",
         help="Path to submit file (starts a new interactive job)",
     )
     p.add_argument(
@@ -236,10 +241,14 @@ def get_parser():
     )
     p._friendly_error = "Provide a job ID to hold."
     p._friendly_hint = (
-        "Use `htcondor jobs hold <job_id>` to hold a job.\n"
+        "Use `htcondor jobs hold <job-id>` to hold a job.\n"
         "       Example: `htcondor jobs hold 1042.0`"
     )
-    p.add_argument("job_id", help="Job ID to hold (e.g. 1042.0 or 1042)")
+    p.add_argument(
+        "job_id",
+        metavar="job-id",
+        help="Job ID to hold (e.g. 1042.0 or 1042)",
+    )
     p.add_argument(
         "-r", "--reason", default=None,
         help="A reason for holding the job(s)",
@@ -253,10 +262,14 @@ def get_parser():
     )
     p._friendly_error = "Provide a job ID to release."
     p._friendly_hint = (
-        "Use `htcondor jobs release <job_id>` to release a held job.\n"
+        "Use `htcondor jobs release <job-id>` to release a held job.\n"
         "       Example: `htcondor jobs release 1042.0`"
     )
-    p.add_argument("job_id", help="Job ID to release (e.g. 1042.0 or 1042)")
+    p.add_argument(
+        "job_id",
+        metavar="job-id",
+        help="Job ID to release (e.g. 1042.0 or 1042)",
+    )
     p.set_defaults(command=jobs_release)
 
     # --- jobs remove ---
@@ -265,10 +278,14 @@ def get_parser():
     )
     p._friendly_error = "Provide a job ID to remove."
     p._friendly_hint = (
-        "Use `htcondor jobs remove <job_id>` to remove a job.\n"
+        "Use `htcondor jobs remove <job-id>` to remove a job.\n"
         "       Example: `htcondor jobs remove 1042.0`"
     )
-    p.add_argument("job_id", help="Job ID to remove (e.g. 1042.0 or 1042)")
+    p.add_argument(
+        "job_id",
+        metavar="job-id",
+        help="Job ID to remove (e.g. 1042.0 or 1042)",
+    )
     p.add_argument(
         "-f", "--force", action="store_true",
         help="Force-remove: skip cleanup hooks",
@@ -279,12 +296,13 @@ def get_parser():
     p = jobs_verbs.add_parser("edit", help="Edit properties of a job")
     p._friendly_error = "Provide a job ID and an assignment (e.g. request_memory=30GB)."
     p._friendly_hint = (
-        "Use `htcondor jobs edit <job_id> <key>=<value>`.\n"
+        "Use `htcondor jobs edit <job-id> <key>=<value>`.\n"
         "       Example: `htcondor jobs edit 1042.0 request_memory=30GB`"
     )
-    p.add_argument("job_id", help="Job ID to edit (e.g. 1042.0)")
+    p.add_argument("job_id", metavar="job-id", help="Job ID to edit (e.g. 1042.0)")
     p.add_argument(
         "assignment",
+        metavar="key=value",
         help="Attribute assignment in key=value format (e.g. request_memory=30GB, request_cpus=4)",
     )
     p.set_defaults(command=jobs_edit)

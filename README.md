@@ -48,3 +48,7 @@ to get started.
 
 To see how the commands would work for an end-to-end HTCondor workflow, see [mockup.md](/mockup.md).
 
+## CLI style guide
+
+For command/option and output conventions used across nouns and verbs, see
+[style-guide.md](/style-guide.md).
